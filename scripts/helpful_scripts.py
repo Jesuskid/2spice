@@ -3,8 +3,6 @@ from brownie import (
     config,
     network,
     Contract,
-    MockDai,
-    MockWeth,
     CoinToken,
 )
 
@@ -26,43 +24,6 @@ def get_account(index=None, id=None):
         return accounts[0]
     else:
         return accounts.add(config["wallets"]["from_key"])
-
-
-mock_contracts = {
-    "eth_usd_price_feed": MockV3Aggregator,
-    "dai_usd_price_feed": MockV3Aggregator,
-    "fau_token": MockDai,
-    "weth_token": MockWeth,
-}
-
-
-def get_contract(c_name):
-    """This function will grab the contract addresses
-    from the brownie config if defined otherwise it deploys a mock version
-    of that contract and returns a mock contract
-
-    args:
-       contractname (string)
-
-    Returns:
-       brownie.network.contract.ProjectContract: most recently deployed version of the mock contract
-
-    """
-    contract_type = mock_contracts[c_name]
-    if network.show_active() in LOCAL_BLOCKCHIANS_ENV:
-        print(f"{c_name}")
-        if len(contract_type) <= 0:
-            deploy_mocks()
-        # cv = mock_contracts["dai_usd_price_feed"]
-        # print(f"000 cv contract {cv[-1]}")
-        contract = contract_type[-1]
-    else:
-        contract_add = config["networks"][network.show_active()][c_name]
-        contract = Contract.from_abi(
-            contract_type._name, contract_add, contract_type.abi
-        )
-
-    return contract
 
 
 def deploy_mocks():

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Earnville is ERC20, Ownable {
-    address busdAddress = 0x4Fabb145d64652a948d72533023f6E7A623C7C53;
+    address busdAddress;
 
     address jackpotContract;
     address insuranceContract;
@@ -56,12 +56,14 @@ contract Earnville is ERC20, Ownable {
         uint256 _initalSupply,
         address _jackPotContract,
         address _insuranceContract,
-        address _treasuryContract
+        address _treasuryContract,
+        address _busdAddress
     ) ERC20("Earnville", "EAVL") {
         _mint(msg.sender, _initalSupply);
         jackpotContract = _jackPotContract;
         insuranceContract = _insuranceContract;
         treasuryContract = _treasuryContract;
+        busdAddress = _busdAddress;
     }
 
     modifier isPoolValueSet() {
