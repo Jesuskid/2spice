@@ -27,10 +27,10 @@ contract Earnville is ERC20, Ownable {
 
     //taxes
     //buy
-    uint256 jackpotBuyTax;
-    uint256 TreasuryBuyTax;
-    uint256 LPBuyTax;
-    uint256 insuranceBuyTax;
+    uint256 public jackpotBuyTax;
+    uint256 public TreasuryBuyTax;
+    uint256 public LPBuyTax;
+    uint256 public insuranceBuyTax;
 
     //sales
     uint256 jackpotSellTax;
@@ -96,7 +96,9 @@ contract Earnville is ERC20, Ownable {
         uint256 contractBusdBalance = IERC20(busdAddress).balanceOf(
             address(this)
         );
+        uint256 contractXusdBalance = balanceOf(address(this));
         busdAmountInLP = contractBusdBalance;
+        xusdAmountInLP = contractXusdBalance;
 
         //calculates the xusd price
         uint256 xusdPrice = (busdAmountInLP / xusdAmountInLP);
@@ -115,9 +117,9 @@ contract Earnville is ERC20, Ownable {
             (busdAmount / xusdPrice)
         ); //xusd addition
         //make transfers to various contract
-        transferToPool(busdAddress, jackpotContract, jackpotAmount);
-        transferToPool(busdAddress, treasuryContract, TreasuryAmount);
-        transferToPool(busdAddress, insuranceContract, InsuranceAmount);
+        transferToPool(jackpotContract, 100);
+        transferToPool(treasuryContract, 100);
+        transferToPool(insuranceContract, 100);
 
         //calculates the buying value of busd after taxes
         uint256 purchaseValueBusd = busdAmount -
@@ -162,21 +164,9 @@ contract Earnville is ERC20, Ownable {
         //calulate the xusd price
         uint256 xusdPrice = (busdAmountInLP / xusdAmountInLP);
 
-        transferToPool(
-            busdAddress,
-            jackpotContract,
-            (jackpotAmount * xusdPrice)
-        );
-        transferToPool(
-            busdAddress,
-            treasuryContract,
-            (TreasuryAmount * xusdPrice)
-        );
-        transferToPool(
-            busdAddress,
-            insuranceContract,
-            (InsuranceAmount * xusdPrice)
-        );
+        transferToPool(jackpotContract, (jackpotAmount * xusdPrice));
+        transferToPool(treasuryContract, (TreasuryAmount * xusdPrice));
+        transferToPool(insuranceContract, (InsuranceAmount * xusdPrice));
         //---------------
         jackpotValue += jackpotAmount;
         TreasuryValue += TreasuryAmount;
@@ -230,15 +220,11 @@ contract Earnville is ERC20, Ownable {
     //Helper functions
     function burnTokens(uint256 amount, address sender) public {
         //burns the tokens by transfering them to address 0
-        IERC20(address(this)).transferFrom(sender, address(0), amount);
+        _transfer(sender, address(0), amount);
     }
 
-    function transferToPool(
-        address contractAddress,
-        address _pool,
-        uint256 _amount
-    ) public {
-        IERC20(contractAddress).transferFrom(address(this), _pool, _amount);
+    function transferToPool(address _pool, uint256 _amount) public {
+        IERC20(busdAddress).transferFrom(address(this), _pool, _amount);
     }
 
     function calculatePercentage(uint256 _percent, uint256 amount)
@@ -246,8 +232,8 @@ contract Earnville is ERC20, Ownable {
         pure
         returns (uint256)
     {
-        require(_percent >= 1);
-        require(amount >= 100);
+        //require(_percent >= 1, "percentage is less than one");
+        require(amount >= 100, "Amount is more than 100");
         return (_percent * amount) / 100;
     }
 
@@ -277,12 +263,23 @@ contract Earnville is ERC20, Ownable {
 
         return (holders[mapping_holders[holderAddress].id] == holderAddress);
     }
+
     /** setter functions **/
     //update address
 
     //update tax amounts
 
     //buy taxes
+    function updateBuyTaxes(
+        uint256 _jackpotPercent,
+        uint256 _insurancePercent,
+        uint256 _treasuryPercent
+    ) public {
+        require(_jackpotPercent > 0, "");
+        jackpotBuyTax = _jackpotPercent;
+        insuranceBuyTax = _insurancePercent;
+        TreasuryBuyTax = _treasuryPercent;
+    }
 
     //sale taxes
 }

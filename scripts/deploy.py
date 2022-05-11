@@ -32,5 +32,9 @@ def deploy_earnville_and_cointoken(frontend_update=False):
     return earnville, coin_token, insurance, jackpot, treasury
 
 
+def setPoolPercentages():
+    pass
+
+
 def main():
     deploy_earnville_and_cointoken()
