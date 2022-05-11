@@ -84,7 +84,7 @@ contract Earnville is ERC20, Ownable {
         IERC20 earnVilleToken = IERC20(address(this));
         uint256 earnvilleAmount = earnVilleToken.balanceOf(msg.sender);
         busdToken.transferFrom(msg.sender, address(this), busdAmount);
-        earnVilleToken.transferFrom(msg.sender, address(this), earnvilleAmount);
+        _transfer(msg.sender, address(this), earnvilleAmount);
         poolValueSet = true;
     }
 

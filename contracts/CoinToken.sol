@@ -6,6 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract CoinToken is ERC20 {
     constructor() ERC20("COIN", "CNT") {
-        _mint(msg.sender, 1000000000000000000000000);
+        _mint(msg.sender, 100000000000000000000000000000000000000000000);
     }
 }

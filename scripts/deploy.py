@@ -29,7 +29,7 @@ def deploy_earnville_and_cointoken(frontend_update=False):
         publish_source=config["networks"][network.show_active()]["verify"],
     )
 
-    return earnville, coin_token
+    return earnville, coin_token, insurance, jackpot, treasury
 
 
 def main():
