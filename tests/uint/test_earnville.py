@@ -1,5 +1,6 @@
 # objectives
 # =========================================================
+import web3
 from scripts.deploy import deploy_earnville_and_cointoken
 from scripts.helpful_scripts import get_account
 from web3 import Web3
@@ -53,6 +54,9 @@ def test_setInitial_poolValue():
     assert coin_token.balanceOf(earnville.address) == busd_amount
 
 
+# test update fees
+
+
 # test buying
 def test_buying_operation():
     # Arrange
@@ -65,23 +69,19 @@ def test_buying_operation():
         treasury,
     ) = deploy_earnville_and_cointoken()
     # Act
-    busd_amount = Web3.toWei(10000000, "ether")
-    xusd_amount = Web3.toWei(1000000, "ether")
+    infinit_busd_amount = Web3.toWei(
+        1000000000000000000000000000000000000000000000000000, "ether"
+    )
+    set_busd_amount = Web3.toWei(10000000, "ether")
+    busd_amount = Web3.toWei(1000, "ether")
+    xusd_amount = Web3.toWei(100, "ether")
+    earnvilleBusdBalanceBeforePurchase = coin_token.balanceOf(earnville.address)
     ##set approvals
-    earnville.approve(account, Web3.toWei(10000000000000000000000000000000, "ether"))
-    earnville.approve(
-        insurance.address, Web3.toWei(10000000000000000000000000000000, "ether")
-    )
-    earnville.approve(
-        jackpot.address, Web3.toWei(10000000000000000000000000000000, "ether")
-    )
-    earnville.approve(
-        treasury.address, Web3.toWei(10000000000000000000000000000000, "ether")
-    )
+    print(coin_token.balanceOf(insurance.address))
     # set initial pool values
-    coin_token.approve(earnville.address, busd_amount, {"from": account})
-    earnville.approve(earnville.address, xusd_amount, {"from": account})
-    tx = earnville.setInitalPoolValue(busd_amount, {"from": account})
+    coin_token.approve(earnville.address, infinit_busd_amount, {"from": account})
+    earnville.approve(earnville.address, infinit_busd_amount, {"from": account})
+    tx = earnville.setInitalPoolValue(set_busd_amount, {"from": account})
     tx.wait(1)
     ## set taxes percentage
     tx1b = earnville.updateBuyTaxes(5, 3, 10, {"from": account})
@@ -90,13 +90,95 @@ def test_buying_operation():
     coin_token.approve(earnville.address, busd_amount, {"from": account})
     tx2 = earnville.buy(busd_amount)
     tx2.wait(1)
-
-    # assert
+    print(coin_token.balanceOf(insurance.address))
+    # assert-------------------------------------------------------------------
+    # buying fees percentages are ok
     assert earnville.jackpotBuyTax() == 5
     print("passed the set buy taxes")
+    # tokens where minted to msg.sender
     assert earnville.balanceOf(account) > 0
+    # balance of contracts has increased
+    # assert coin_token.balanceOf(
+    #     earnville.address
+    # ) == earnvilleBusdBalanceBeforePurchase + Web3.toWei(
+    #     busd_amount, "ether"
+    # ) + Web3.toWei(
+    #     busd_amount, "ether"
+    # )
+    # Test that the buying fees collected are correct
+    j_percentage = earnville.calculatePercentage(5, busd_amount)
+    i_percentage = earnville.calculatePercentage(3, busd_amount)
+    t_percentage = earnville.calculatePercentage(10, busd_amount)
+    assert earnville.balanceOf(earnville.address) > 0
+    assert coin_token.balanceOf(jackpot.address) == j_percentage
+    assert coin_token.balanceOf(insurance.address) == i_percentage
+    assert coin_token.balanceOf(treasury.address) == t_percentage
 
 
 # test buying fees collection
+def test_buy_fees_collected():
+    pass
+
+
 # test selling
-# test selling fees collection
+def test_selling():
+    # Arrange
+    account = get_account()
+    (
+        earnville,
+        coin_token,
+        insurance,
+        jackpot,
+        treasury,
+    ) = deploy_earnville_and_cointoken()
+    infinit_busd_amount = Web3.toWei(
+        1000000000000000000000000000000000000000000000000000, "ether"
+    )
+    set_busd_amount = Web3.toWei(10000000, "ether")
+    busd_amount = Web3.toWei(1000, "ether")
+    xusd_amount = Web3.toWei(100, "ether")
+    earnvilleBusdBalanceBeforePurchase = coin_token.balanceOf(earnville.address)
+    ##set approvals
+    coin_token.approve(earnville.address, infinit_busd_amount, {"from": account})
+    earnville.approve(earnville.address, infinit_busd_amount, {"from": account})
+    tx = earnville.setInitalPoolValue(set_busd_amount, {"from": account})
+    tx.wait(1)
+    ## set taxes percentage
+    tx1c = earnville.updateBuyTaxes(5, 3, 10, {"from": account})
+    tx1c.wait(1)
+    tx1b = earnville.updateSellTaxes(5, 3, 10, {"from": account})
+    tx1b.wait(1)
+    ##
+    coin_token.approve(earnville.address, busd_amount, {"from": account})
+    tx2 = earnville.buy(busd_amount)
+    tx2.wait(1)
+
+    j_value = coin_token.balanceOf(jackpot.address)
+    i_value = coin_token.balanceOf(insurance.address)
+    t_value = coin_token.balanceOf(treasury.address)
+    print(j_value)
+
+    # Act -----------------------------------------------
+    closing_balance = earnville.balanceOf(account)
+    total_supply = earnville.totalSupply()
+    xusd_sell_amount = Web3.toWei(10, "ether")
+    sellTx = earnville.sell(xusd_sell_amount, {"from": account})
+    sellTx.wait(1)
+
+    ##check sell fees are collected and correct
+    j_percentage = earnville.calculatePercentage(5, xusd_sell_amount)
+    i_percentage = earnville.calculatePercentage(3, xusd_sell_amount)
+    t_percentage = earnville.calculatePercentage(10, xusd_sell_amount)
+
+    ##assert
+
+    assert coin_token.balanceOf(jackpot.address) > j_value
+    assert coin_token.balanceOf(insurance.address) > i_value
+    assert coin_token.balanceOf(treasury.address) > t_value
+
+    ##check tokens are burnt
+    assert earnville.balanceOf(account) == closing_balance - xusd_sell_amount
+    assert earnville.totalSupply() == total_supply - xusd_sell_amount
+
+
+# test rewards

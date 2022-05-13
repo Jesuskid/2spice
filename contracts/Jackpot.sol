@@ -7,6 +7,18 @@ import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Jackpot is Ownable {
-    address busdAddress = 0x4Fabb145d64652a948d72533023f6E7A623C7C53;
-    address earnVilleContract;
+    address internal busd;
+    event Log(string func, address sender, uint256 value, bytes data);
+
+    constructor(address _busd) {
+        busd = _busd;
+    }
+
+    fallback() external payable {
+        emit Log("fallback", msg.sender, msg.value, msg.data);
+    }
+
+    receive() external payable {
+        emit Log("fallback", msg.sender, msg.value, "");
+    }
 }

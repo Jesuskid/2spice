@@ -7,7 +7,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Insurance is Ownable {
-    address busd;
+    address internal busd;
+    event Log(string func, address sender, uint256 value, bytes data);
 
-    constructor() {}
+    constructor(address _busd) {
+        busd = _busd;
+    }
+
+    fallback() external payable {
+        emit Log("fallback", msg.sender, msg.value, msg.data);
+    }
+
+    receive() external payable {
+        emit Log("fallback", msg.sender, msg.value, "");
+    }
 }

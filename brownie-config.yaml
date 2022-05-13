@@ -25,5 +25,7 @@ networks:
     weth_token: '0xa1C74a9A3e59ffe9bEe7b85Cd6E91C0751289EbD'
     fau_token: '0xFab46E002BbF0b4509813474841E0716E6730136'
     verify: True
+  bsc_test:
+    verify: False
   ganache:
     verify: False
