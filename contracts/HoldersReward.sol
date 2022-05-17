@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Jackpot is Ownable {
+contract HoldersReward is Ownable {
     address internal busd;
     event Log(string func, address sender, uint256 value, bytes data);
 

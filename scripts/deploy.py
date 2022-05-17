@@ -5,8 +5,9 @@ from brownie import (
     network,
     CoinToken,
     Earnville,
-    Insurance,
-    Jackpot,
+    Dev,
+    HoldersReward,
+    RFV,
     Treasury,
 )
 from scripts.helpful_scripts import get_account
@@ -17,14 +18,16 @@ def deploy_earnville_and_cointoken(frontend_update=False):
     account = get_account()
     test_address = "0x82CE79a8c5D87E8d73Bc2BF9b943a5fC7b46a65D"
     coin_token = CoinToken.deploy({"from": account})
-    insurance = Insurance.deploy(coin_token.address, {"from": account})
-    jackpot = Jackpot.deploy(coin_token.address, {"from": account})
+    rfv = RFV.deploy(coin_token.address, {"from": account})
+    holders_reward = HoldersReward.deploy(coin_token.address, {"from": account})
     treasury = Treasury.deploy(coin_token.address, {"from": account})
+    dev = Dev.deploy(coin_token.address, {"from": account})
     earnville = Earnville.deploy(
         Web3.toWei(1000000, "ether"),
-        jackpot.address,
-        insurance.address,
+        holders_reward.address,
+        rfv.address,
         treasury.address,
+        dev.address,
         coin_token.address,
         {"from": account},
         publish_source=config["networks"][network.show_active()]["verify"],
@@ -40,7 +43,7 @@ def deploy_earnville_and_cointoken(frontend_update=False):
     tx.wait(1)
     print("set pool value")
 
-    return earnville, coin_token, insurance, jackpot, treasury
+    return earnville, coin_token, rfv, holders_reward, treasury, dev
 
 
 def setPoolPercentages():
