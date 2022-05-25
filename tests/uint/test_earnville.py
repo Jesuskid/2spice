@@ -138,6 +138,7 @@ def test_holding_rewards():
     set_busd_amount = Web3.toWei(10000000, "ether")
     busd_amount = Web3.toWei(1000, "ether")
     xusd_amount = Web3.toWei(100, "ether")
+    xusd_sell_amount = Web3.toWei(10, "ether")
     earnvilleBusdBalanceBeforePurchase = coin_token.balanceOf(earnville.address)
     ##set approvals
     coin_token.approve(earnville.address, infinit_busd_amount, {"from": account})
@@ -150,6 +151,12 @@ def test_holding_rewards():
     ###ACT
     tx2 = earnville.setAPY(99)
     tx2.wait(1)
+
+    tx3 = coin_token.approve(earnville.address, infinit_busd_amount, {"from": account})
+    tx3.wait(1)
+    sellTx = earnville.sell(xusd_sell_amount, {"from": account})
+    sellTx.wait(1)
+    print(f"holders balance: {coin_token.balanceOf(holders_reward.address)}")
     print(earnville.holders(0))
     print(earnville.rewards(account))
     print(earnville.balanceOf(account))
@@ -158,7 +165,7 @@ def test_holding_rewards():
     tx.wait(1)
 
     ##assert
-    assert earnville.rewards(account) > balance_before
+    assert earnville.rewards(account) == 0
 
 
 # test selling

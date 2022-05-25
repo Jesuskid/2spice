@@ -4,14 +4,20 @@ pragma solidity ^0.8.10;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract HoldersReward is Ownable {
+contract HoldersReward is AccessControl {
+    bytes32 public constant ALLOWED_CONTRACTS = keccak256("ALLOWED_CONTRACTS");
+    bytes32 public constant DEV_ROLE = keccak256("DEV_ROLE");
+
     address internal busd;
     event Log(string func, address sender, uint256 value, bytes data);
 
+    //access variables
+
     constructor(address _busd) {
         busd = _busd;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     fallback() external payable {
@@ -20,5 +26,12 @@ contract HoldersReward is Ownable {
 
     receive() external payable {
         emit Log("fallback", msg.sender, msg.value, "");
+    }
+
+    function transferTo(address rec, uint256 amount)
+        public
+        onlyRole(ALLOWED_CONTRACTS)
+    {
+        IERC20(busd).transfer(rec, amount);
     }
 }

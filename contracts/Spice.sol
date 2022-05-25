@@ -5,10 +5,24 @@ pragma solidity ^0.8.10;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
+interface IHoldersReward {
+    function transferTo(address rec, uint256 amount) external;
+}
+
+interface IRFV {
+    function transferTo(address rec, uint256 amount) external;
+}
+
+interface ITreasury {
+    function transferTo(address rec, uint256 amount) external;
+}
+
+contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
+    bytes32 public constant DEV_ROLE = keccak256("DEV_ROLE");
+
     address busdAddress;
 
     address holdersRewardContract;
@@ -31,6 +45,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
     uint256 public rfvBuyTax = 5;
     uint256 devBuyTax = 2;
 
+    uint256 weiValue = 1000000000000000000;
     //sales
     uint256 holdersSellTax = 5;
     uint256 TreasurySellTax = 3;
@@ -39,7 +54,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
     uint256 devSellTax = 2;
 
     bool poolValueSet;
-    uint256 public xusdPrice;
+    uint256 public spicePrice;
     uint256 timeLock;
 
     struct Holder {
@@ -52,26 +67,40 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
     mapping(address => bool) access;
     mapping(address => uint256) public rewards;
 
-    event Bought(address indexed buyer, uint256 amount);
-    event Sold(address indexed seller, uint256 amount);
+    event Bought(
+        uint256 indexed timeStamp,
+        address indexed buyer,
+        uint256 amount
+    );
+    event Sold(
+        uint256 indexed timeStamp,
+        address indexed seller,
+        uint256 amount
+    );
     event PoolValueSet(address setter);
     event Rewarded(address user, uint256 amount);
+    event NewPrice(uint256 indexed timeStamp, uint256 price);
 
     constructor(
         uint256 _initalSupply,
-        address _jackPotContract,
-        address _insuranceContract,
+        address _holdersContract,
+        address _rfvContract,
         address _treasuryContract,
         address _dev,
-        address _busdAddress
-    ) ERC20("Earnville", "EAVL") {
+        address _busdAddress,
+        address _adminAddress,
+        uint256 _apy
+    ) ERC20("2spice", "Spice") {
         _mint(msg.sender, _initalSupply);
-        holdersRewardContract = _jackPotContract;
-        rfvContract = _insuranceContract;
+        holdersRewardContract = _holdersContract;
+        rfvContract = _rfvContract;
         treasuryContract = _treasuryContract;
         devContract = _dev;
         busdAddress = _busdAddress;
         timeLock = block.timestamp;
+        _setupRole(DEFAULT_ADMIN_ROLE, _adminAddress);
+        _setupRole(DEV_ROLE, msg.sender);
+        APY = _apy;
     }
 
     modifier isPoolValueSet() {
@@ -87,7 +116,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
         _;
     }
 
-    function setInitalPoolValue(uint256 busdAmount) public onlyOwner {
+    function setInitalPoolValue(uint256 busdAmount) public onlyRole(DEV_ROLE) {
         IERC20 earnVilleToken = IERC20(address(this));
         uint256 earnvilleAmount = earnVilleToken.balanceOf(msg.sender);
         require(busdAmount >= earnvilleAmount, "Not enough busd to set value");
@@ -100,24 +129,22 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
 
     function buy(uint256 busdAmount) public isPoolValueSet nonReentrant {
         //transfer the amount bought to the contract address
+        //calculates the xusd price
+
+        uint256 xusdPrice = priceOfXusdInBusd();
+
         IERC20(busdAddress).transferFrom(msg.sender, address(this), busdAmount);
 
-        //calculates the xusd price
-        xusdPrice = priceOfXusdInBusd();
-
-        uint256 devAmount = calculatePercentage(
-            devBuyTax,
-            (busdAmount / xusdPrice)
-        );
+        uint256 devAmount = calculatePercentage(devBuyTax, busdAmount);
         uint256 TreasuryAmount = calculatePercentage(
             TreasuryBuyTax,
             busdAmount
         );
         uint256 rfvAmount = calculatePercentage(rfvBuyTax, busdAmount);
         //InsuranceValue = rfvAmount;
-        uint256 LPAmount = calculatePercentage(5, busdAmount); //xusd addition
+        uint256 LPAmount = calculatePercentage(LPBuyTax, busdAmount); //xusd addition
         //make transfers to various contract
-        transferToPool(address(this), LPAmount);
+        // transferToPool(address(this), LPAmount);
         transferToPool(treasuryContract, TreasuryAmount);
         transferToPool(rfvContract, rfvAmount);
 
@@ -126,7 +153,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
             (rfvAmount + TreasuryAmount + devAmount + LPAmount);
 
         // The value of XUSD purchased
-        uint256 xusdValuePurchased = purchaseValueBusd / xusdPrice;
+        uint256 xusdValuePurchased = (purchaseValueBusd * weiValue) / xusdPrice;
 
         //adds user to the array if this is their first purchase
         if (!HolderExist(msg.sender)) {
@@ -137,12 +164,16 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
         //updates the amount of xusd held by the contract
 
         _mint(msg.sender, (xusdValuePurchased));
-        _mint(devContract, (devAmount / xusdPrice));
+        //mint new dev contract tokens
+        _mint(devContract, ((devAmount * weiValue) / xusdPrice));
         //update amounts
-        emit Bought(msg.sender, xusdValuePurchased);
+        uint256 newPrice = priceOfXusdInBusd();
+        emit Bought(block.timestamp, msg.sender, xusdValuePurchased);
+        emit NewPrice(block.timestamp, newPrice);
     }
 
     function sell(uint256 amountInXusd) public isPoolValueSet nonReentrant {
+        uint256 xusdPrice = priceOfXusdInBusd();
         uint256 amountHeld = IERC20(address(this)).balanceOf(msg.sender);
         //ensures that the balance of token held is equal to the amount
         //required by the msg.sender
@@ -161,14 +192,16 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
 
         uint256 devAmount = calculatePercentage(devSellTax, amountInXusd);
         //calulate the xusd price
-        uint256 xusdPrice = priceOfXusdInBusd();
 
         transferToPool(
             holdersRewardContract,
-            (holdersRewardAmount * xusdPrice)
+            ((holdersRewardAmount * xusdPrice) / weiValue)
         );
-        transferToPool(treasuryContract, (TreasuryAmount * xusdPrice));
-        transferToPool(rfvContract, (rfvAmount * xusdPrice));
+        transferToPool(
+            treasuryContract,
+            ((TreasuryAmount * xusdPrice) / weiValue)
+        );
+        transferToPool(rfvContract, ((rfvAmount * xusdPrice) / weiValue));
         _transfer(msg.sender, devContract, devAmount);
         //---------------
         uint256 amountAftertaxes = amountInXusd -
@@ -177,12 +210,15 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
                 rfvAmount +
                 LPAmount +
                 devAmount);
-        uint256 amountTransferableBusd = amountAftertaxes * xusdPrice;
+        uint256 amountTransferableBusd = (amountAftertaxes * xusdPrice) /
+            weiValue;
         //burns seller's xusd tokens
         burn(amountInXusd - devAmount);
         //transfer bused equivalent to msg.sender
         IERC20(busdAddress).transfer(msg.sender, amountTransferableBusd);
-        emit Sold(msg.sender, amountInXusd);
+        uint256 newPrice = priceOfXusdInBusd();
+        emit Sold(block.timestamp, msg.sender, amountInXusd);
+        emit NewPrice(block.timestamp, newPrice);
     }
 
     //issues rewards to holders of the xusd token from the Treasury to be decided
@@ -205,26 +241,57 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
                 );
                 //send them a token reward based on their total staked value
                 rewards[receipient] = rewardPercentage;
+                claimReward(receipient);
             }
         }
         timeLock = block.timestamp + 30 minutes;
     }
 
     //claim rewards
-    function claimReward(address _receipient) external {
+    function claimReward(address _receipient) public {
         uint256 xusdPrice = priceOfXusdInBusd(); //gets the xusd price
         uint256 rewardAmount = rewards[_receipient]; //sets the reward percentage
-        require(rewardAmount >= 100, "Not enouth rewards to claim");
-        uint256 rewardBusdToLP = rewardAmount * xusdPrice;
-        _mint(_receipient, rewardAmount);
-        IERC20(holdersRewardContract).transfer(address(this), rewardBusdToLP);
-        emit Rewarded(_receipient, rewardAmount);
+        if (rewardAmount >= 100) {
+            uint256 rewardBusdToLP = (rewardAmount * xusdPrice) / weiValue;
+
+            IHoldersReward holdersContract = IHoldersReward(
+                holdersRewardContract
+            );
+            ITreasury treasuryFunds = ITreasury(treasuryContract);
+            IRFV rfvFunds = IRFV(rfvContract);
+
+            //get contract balances
+            uint256 holdersRewardBalance = IERC20(busdAddress).balanceOf(
+                holdersRewardContract
+            );
+            uint256 RFVBalance = IERC20(busdAddress).balanceOf(rfvContract);
+            uint256 TreasuryBalance = IERC20(busdAddress).balanceOf(
+                treasuryContract
+            );
+
+            //set offset transfers
+            if (holdersRewardBalance >= rewardBusdToLP) {
+                holdersContract.transferTo(address(this), rewardBusdToLP);
+                _mint(_receipient, rewardAmount);
+                rewards[_receipient] = 0;
+            } else if (RFVBalance >= rewardBusdToLP) {
+                rfvFunds.transferTo(address(this), rewardBusdToLP);
+                _mint(_receipient, rewardAmount);
+                rewards[_receipient] = 0;
+            } else if (TreasuryBalance >= rewardBusdToLP) {
+                treasuryFunds.transferTo(address(this), rewardBusdToLP);
+                _mint(_receipient, rewardAmount);
+                rewards[_receipient] = 0;
+            }
+
+            emit Rewarded(_receipient, rewardAmount);
+        }
     }
 
-    //increases the supply of the xusd tokens given the continues upward price
-    function rebase(uint256 _amount) public onlyOwner {
-        _mint(address(this), _amount);
-    }
+    // //increases the supply of the xusd tokens given the continues upward price
+    // function rebase(uint256 _amount) public onlyOwner {
+    //     _mint(address(this), _amount);
+    // }
 
     //Helper functions
     function transferToPool(address _pool, uint256 _amount) public {
@@ -241,7 +308,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
         return (_percent * amount) / 100;
     }
 
-    function setAPY(uint256 percent) public onlyOwner {
+    function setAPY(uint256 percent) public onlyRole(DEV_ROLE) {
         //divides the expected annual apy to a 30 minute interval
         APY = percent;
     }
@@ -279,7 +346,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
         uint256 _treasuryPercent,
         uint256 _devPercent,
         uint256 _LPPercent
-    ) public onlyOwner {
+    ) public onlyRole(DEV_ROLE) {
         require(_rfvPercent > 0, "");
         require(_treasuryPercent > 0, "");
         require(_devPercent > 0, "");
@@ -296,7 +363,7 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
         uint256 _treasuryPercent,
         uint256 _LPpercent,
         uint256 _devSellTax
-    ) public onlyOwner {
+    ) public onlyRole(DEV_ROLE) {
         require(_holdersRewardPercent > 0, "");
         require(_rfvPercent > 0, "");
         require(_treasuryPercent > 0, "");
@@ -311,9 +378,10 @@ contract Earnville is ERC20, Ownable, ERC20Burnable, ReentrancyGuard {
         uint256 contractBusdBalance = IERC20(busdAddress).balanceOf(
             address(this)
         );
-        uint256 contractXusdBalance = IERC20(address(this)).balanceOf(
-            address(this)
-        );
-        return contractBusdBalance / contractXusdBalance;
+        // uint256 contractXusdBalance = IERC20(address(this)).balanceOf(
+        //     address(this)
+        // );
+        uint256 contractXusdBalance = IERC20(address(this)).totalSupply();
+        return (contractBusdBalance * weiValue) / contractXusdBalance;
     }
 }

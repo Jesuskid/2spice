@@ -4,7 +4,7 @@ from brownie import (
     config,
     network,
     CoinToken,
-    Earnville,
+    Spice,
     Dev,
     HoldersReward,
     RFV,
@@ -21,14 +21,16 @@ def deploy_earnville_and_cointoken(frontend_update=False):
     rfv = RFV.deploy(coin_token.address, {"from": account})
     holders_reward = HoldersReward.deploy(coin_token.address, {"from": account})
     treasury = Treasury.deploy(coin_token.address, {"from": account})
-    dev = Dev.deploy(coin_token.address, {"from": account})
-    earnville = Earnville.deploy(
+    dev = Dev.deploy(account, coin_token.address, {"from": account})
+    earnville = Spice.deploy(
         Web3.toWei(1000000, "ether"),
         holders_reward.address,
         rfv.address,
         treasury.address,
         dev.address,
         coin_token.address,
+        account,
+        99,
         {"from": account},
         publish_source=config["networks"][network.show_active()]["verify"],
     )
@@ -39,9 +41,23 @@ def deploy_earnville_and_cointoken(frontend_update=False):
     earnville.approve(earnville.address, xusd_amount, {"from": account})
     tx = earnville.setInitalPoolValue(busd_amount, {"from": account})
     tx.wait(1)
-    tx2 = coin_token.transfer(test_address, busd_amount, {"from": account})
-    tx.wait(1)
+    coin_token.approve(holders_reward.address, busd_amount, {"from": account})
+    # tx2 = coin_token.transferFrom(
+    #     account, holders_reward.address, busd_amount, {"from": account}
+    # )
+    # tx2.wait(1)
     print("set pool value")
+    allow_contract_h = holders_reward.ALLOWED_CONTRACTS()
+    default_admin = holders_reward.DEFAULT_ADMIN_ROLE()
+
+    tx_h = holders_reward.grantRole(
+        allow_contract_h, earnville.address, {"from": account}
+    )
+    tx_h.wait(1)
+    tx_r = rfv.grantRole(allow_contract_h, earnville.address, {"from": account})
+    tx_r.wait(1)
+
+    ##buy and sell
 
     return earnville, coin_token, rfv, holders_reward, treasury, dev
 

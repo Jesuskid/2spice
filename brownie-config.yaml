@@ -26,6 +26,8 @@ networks:
     fau_token: '0xFab46E002BbF0b4509813474841E0716E6730136'
     verify: True
   bsc_test:
+    verify: True
+  bsc_mainnet:
     verify: False
   ganache:
     verify: False
