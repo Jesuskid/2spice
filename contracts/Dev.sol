@@ -48,6 +48,13 @@ contract Dev is AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         uint256 balance = IERC20(busd).balanceOf(address(this));
+        require(balance >= amount, "Not enough busd available");
         IERC20(busd).transfer(rec, amount);
+    }
+
+    //withdraws all busd in the contract
+    function withdraw() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 balance = IERC20(busd).balanceOf(address(this));
+        IERC20(busd).transfer(msg.sender, balance);
     }
 }

@@ -147,7 +147,6 @@ def test_holding_rewards():
     coin_token.approve(earnville.address, busd_amount, {"from": account})
     tx2 = earnville.buy(busd_amount)
     tx2.wait(1)
-    balance_before = earnville.rewards(account)
     ###ACT
     tx2 = earnville.setAPY(99)
     tx2.wait(1)
@@ -156,15 +155,19 @@ def test_holding_rewards():
     tx3.wait(1)
     sellTx = earnville.sell(xusd_sell_amount, {"from": account})
     sellTx.wait(1)
+    balance_before = earnville.balanceOf(account)
     print(f"holders balance: {coin_token.balanceOf(holders_reward.address)}")
     print(earnville.holders(0))
-    print(earnville.rewards(account))
+    print(balance_before)
     print(earnville.balanceOf(account))
     print(earnville.calculateAPY30Minutes(earnville.balanceOf(account)))
     tx = earnville.reward()
     tx.wait(1)
+    print(earnville.rewards(account))
+    print(earnville.balanceOf(account))
 
     ##assert
+    assert earnville.balanceOf(account) > balance_before
     assert earnville.rewards(account) == 0
 
 

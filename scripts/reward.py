@@ -6,7 +6,7 @@ from web3 import Web3
 
 def main():
     account = get_account()
-    spice = Spice[2]
-    tx = spice.reward({"from": account})
+    spice = Spice[-1]
+    tx = spice.reward({"from": account, "gas_limit": 210000})
     tx.wait(1)
     print("rewarded")

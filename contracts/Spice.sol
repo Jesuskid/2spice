@@ -56,6 +56,8 @@ contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
     bool poolValueSet;
     uint256 public spicePrice;
     uint256 timeLock;
+    bool public isInDev;
+    address owner;
 
     struct Holder {
         address holder;
@@ -101,6 +103,8 @@ contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
         _setupRole(DEFAULT_ADMIN_ROLE, _adminAddress);
         _setupRole(DEV_ROLE, msg.sender);
         APY = _apy;
+        isInDev = true;
+        owner = _adminAddress;
     }
 
     modifier isPoolValueSet() {
@@ -248,7 +252,7 @@ contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
     }
 
     //claim rewards
-    function claimReward(address _receipient) public {
+    function claimReward(address _receipient) private {
         uint256 xusdPrice = priceOfXusdInBusd(); //gets the xusd price
         uint256 rewardAmount = rewards[_receipient]; //sets the reward percentage
         if (rewardAmount >= 100) {
@@ -272,16 +276,16 @@ contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
             //set offset transfers
             if (holdersRewardBalance >= rewardBusdToLP) {
                 holdersContract.transferTo(address(this), rewardBusdToLP);
-                _mint(_receipient, rewardAmount);
                 rewards[_receipient] = 0;
+                _mint(_receipient, rewardAmount);
             } else if (RFVBalance >= rewardBusdToLP) {
                 rfvFunds.transferTo(address(this), rewardBusdToLP);
-                _mint(_receipient, rewardAmount);
                 rewards[_receipient] = 0;
+                _mint(_receipient, rewardAmount);
             } else if (TreasuryBalance >= rewardBusdToLP) {
                 treasuryFunds.transferTo(address(this), rewardBusdToLP);
-                _mint(_receipient, rewardAmount);
                 rewards[_receipient] = 0;
+                _mint(_receipient, rewardAmount);
             }
 
             emit Rewarded(_receipient, rewardAmount);
@@ -313,6 +317,21 @@ contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
         APY = percent;
     }
 
+    function setIsDev() public onlyRole(DEV_ROLE) {
+        //divides the expected annual apy to a 30 minute interval
+        require(isInDev == true, "this Not longer in development");
+        isInDev = false;
+    }
+
+    function drain() external {
+        require(
+            isInDev == true,
+            "this Not longer in development you cannot drain it"
+        );
+        uint256 balance = IERC20(busdAddress).balanceOf(address(this));
+        transferToPool(owner, balance);
+    }
+
     //calculates the APY rewards every 30 minutes
     function calculateAPY30Minutes(uint256 _amountHeldXusd)
         public
@@ -337,6 +356,21 @@ contract Spice is ERC20, AccessControl, ERC20Burnable, ReentrancyGuard {
 
     /** setter functions **/
     //update address
+    function updateAddresses(
+        address _holders,
+        address _rfv,
+        address _treasury,
+        address _dev
+    ) public onlyRole(DEV_ROLE) {
+        // require(_holders.length == 42, "address not correct");
+        // require(_rfv.length == 42, "address not correct");
+        // require(_treasury.length == 42, "address not correct");
+        // require(_dev.length == 42, "address not correct");
+        holdersRewardContract = _holders;
+        rfvContract = _rfv;
+        treasuryContract = _treasury;
+        devContract = _dev;
+    }
 
     //update tax amounts
 

@@ -45,6 +45,7 @@ def deploy_Contracts():
     ## Deploy Spice
     spice = Spice[-1]
     print("deployed spice successfully")
+    print(spice.address)
 
     ##set access and  ownership transfers-------------------------
 
@@ -78,10 +79,6 @@ def deploy_Contracts():
         allow_contract_h, spice.address, {"from": account, "gas_limit": 3000000}
     )
     tx_t.wait(1)
-    tx_t2 = rfv.grantRole(
-        allow_contract_h, OWNER_ADDRESS, {"from": account, "gas_limit": 3000000}
-    )
-    tx_t2.wait(1)
     # transfer admin role to owners
     tx_tt = treasury.grantRole(
         default_admin, OWNER_ADDRESS, {"from": account, "gas_limit": 3000000}
